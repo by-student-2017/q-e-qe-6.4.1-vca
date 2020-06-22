@@ -4,6 +4,7 @@
   prefix='case'
   pseudo_dir = './',
   outdir='./work/'
+  nstep=2000
 /
 &system
   ibrav=  2, 
