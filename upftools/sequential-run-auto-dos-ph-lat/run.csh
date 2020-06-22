@@ -37,7 +37,7 @@ foreach upf_name ( ${upf_list} )
   mpirun -np ${num_core} ${QEPATH}/bin/pw.x < run.vc-relax.in | tee run.vc-relax.out
   ./pwout2in.py run.vc-relax
   set n = `grep -n 'K_POINTS' run.vc-relax.new.in | sed 's/:.*//g'`
-  awk -p line=n '{if(NR==line+1){print "  " $1*2 " " $2*2 " " $3*2 "  " $4 " " $5 " " $6}else{print $0}}' run.vc-relax.new.in > run.nscf.in
+  awk -v line=${n} '{if(NR==line+1){print "  " $1*2 " " $2*2 " " $3*2 "  " $4 " " $5 " " $6}else{print $0}}' run.vc-relax.new.in > run.nscf.in
   sed -i 's/vc-relax/nscf/g' run.nscf.in
   sed -i 's/from_scratch/restart/g' run.nscf.in
   mpirun -np ${num_core} ${QEPATH}/bin/pw.x < run.nscf.in > run.nscf.out
