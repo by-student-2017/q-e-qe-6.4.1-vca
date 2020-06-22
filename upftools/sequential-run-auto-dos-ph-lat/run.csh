@@ -43,8 +43,10 @@ foreach upf_name ( ${upf_list} )
   mpirun -np ${num_core} ${QEPATH}/bin/pw.x < run.nscf.in > run.nscf.out
   mpirun -np ${num_core} ${QEPATH}/bin/projwfc.x < input.pr.in
   grep "Fermi" run.nscf.out | sed 's/the Fermi energy is//g'| sed 's/ev/0.0/g' > ef.txt
+  gnuplot tdos.gp
   set upf_1st_name = `echo ${upf_name} | sed -e 's/.UPF//'`
   mv tdos.png ${upf_1st_name}_tdos.png
+  mv "case.pdos_tot" ./plot/${upf_1st_name}.pdos_tot
   grep -A 3 "CELL_PARAMETERS" run.vc-relax.out | tail -4 >> cell_param.txt
   grep "!    total energy" run.vc-relax.out | tail -1 >> etot.txt
   mv work work_${x_value}
