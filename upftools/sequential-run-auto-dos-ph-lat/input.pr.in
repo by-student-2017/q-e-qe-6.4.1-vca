@@ -1,0 +1,6 @@
+&PROJWFC,
+  degauss = 0.006 ,
+  DeltaE = 0.03 ,
+  prefix='case'
+  outdir='./work/'
+/

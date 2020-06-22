@@ -1,0 +1,9 @@
+phonons of case
+&inputph
+  tr2_ph=1.0d-12,
+  prefix='case'
+  ldisp=.true.,
+  nq1=2, nq2=2, nq3=2
+  outdir='./work/',
+  fildyn='case.dyn',
+/

@@ -12,7 +12,8 @@ TLDEPS = libs mods
 
 all : tldeps casino2upf.x cpmd2upf.x fhi2upf.x fpmd2upf.x \
      ncpp2upf.x oldcp2upf.x read_upf_tofile.x rrkj2upf.x upf2casino.x \
-     uspp2upf.x vdb2upf.x virtual_v2.x virtual_v2_auto.x virtual_v2_vac.x interpolate.x fix_upf.x
+     uspp2upf.x vdb2upf.x virtual_v2.x virtual_v2_auto.x \
+     virtual_v2_vac.x virtual_v2_vac_auto.x interpolate.x fix_upf.x
 
 casino2upf.x : casino2upf.o casino_pp.o $(OBJS) $(QEMODS) $(LIBOBJS)
 	$(LD) $(LDFLAGS) -o $@ casino2upf.o casino_pp.o $(OBJS) $(QEMODS) $(LIBOBJS) $(QELIBS)
@@ -70,6 +71,10 @@ virtual_v2_auto.x: virtual_v2_auto.o $(OBJS) $(QEMODS) $(LIBOBJS)
 virtual_v2_vac.x: virtual_v2_vac.o $(OBJS) $(QEMODS) $(LIBOBJS)
 	$(LD) $(LDFLAGS) -o $@ \
 		virtual_v2_vac.o $(OBJS) $(QEMODS) $(LIBOBJS) $(QELIBS)
+
+virtual_v2_vac_auto.x: virtual_v2_vac_auto.o $(OBJS) $(QEMODS) $(LIBOBJS)
+	        $(LD) $(LDFLAGS) -o $@ \
+		virtual_v2_vac_auto.o $(OBJS) $(QEMODS) $(LIBOBJS) $(QELIBS)
 
 interpolate.x : interpolate.o $(OBJS) $(QEMODS) $(LIBOBJS)
 	$(LD) $(LDFLAGS) -o $@ \
