@@ -52,7 +52,6 @@ Run
 -----
 
 
-
 Note -1-
 
 
@@ -65,7 +64,31 @@ Note -1-
 -----
 
 
+-----
+
+
 Note -2-
+
+
+x.dat
+
+
+X.XXXXX
+
+
+Y.YYYYY
+
+
+Z.ZZZZZ
+
+
+...
+
+
+-----
+
+
+Note -3-
 
 
 mass.dat
