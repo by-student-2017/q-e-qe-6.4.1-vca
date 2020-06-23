@@ -1,10 +1,9 @@
 &control
-  calculation='vc-relax'
-  restart_mode='from_scratch',
+  calculation='bands'
+  restart_mode='restart',
   prefix='case'
   pseudo_dir = './',
   outdir='./work/'
-  nstep=100
 /
 &system
   ibrav=  2, 
@@ -30,5 +29,10 @@ ATOMIC_SPECIES
 ATOMIC_POSITIONS (alat)
   Xx1 0.00 0.00 0.00
   As 0.25 0.25 0.25
-K_POINTS automatic
-  2 2 2   1 1 1
+K_POINTS {crystal_b}
+5
+0.0 0.0 0.5 10
+0.0 0.0 0.0 10
+0.5 0.0 0.0 14
+0.0 0.5 0.0 10
+0.0 0.0 0.0 1

@@ -38,7 +38,11 @@ foreach upf_name ( ${upf_list} )
   set mass = `echo "${x_value}*${mass1UPF}+(1.0-${x_value})*${mass2UPF}" | bc`
   sed 's/mix.UPF/'${upf_name}'/g' ../tmp.vc-relax.in > run.vc-relax.in 
   sed -i 's/mix_mass/'${mass}'/g' run.vc-relax.in
+  sed 's/mix.UPF/'${upf_name}'/g' ../tmp.bands.in > run.bands.in
+  sed -i 's/mix_mass/'${mass}'/g' run.bands.in
   mpirun -np ${num_core} ${QEPATH}/bin/pw.x < run.vc-relax.in | tee run.vc-relax.out
+  mpirun -np ${num_core} ${QEPATH}/bin/pw.x < run.bands.in > run.bands.out
+  mpirun -np ${num_core} ${QEPATH}/bin/bands.x < ../input.pp.in
   ../pwout2in.py run.vc-relax
   set n = `grep -n 'K_POINTS' run.vc-relax.new.in | sed 's/:.*//g'`
   awk -v line=${n} '{if(NR==line+1){print "  " $1*2 " " $2*2 " " $3*2 "  " $4 " " $5 " " $6}else{print $0}}' run.vc-relax.new.in > run.nscf.in
@@ -47,7 +51,10 @@ foreach upf_name ( ${upf_list} )
   mpirun -np ${num_core} ${QEPATH}/bin/pw.x < run.nscf.in > run.nscf.out
   mpirun -np ${num_core} ${QEPATH}/bin/projwfc.x < ../input.pr.in
   grep "Fermi" run.nscf.out | sed 's/the Fermi energy is//g'| sed 's/ev/0.0/g' > ef.txt
+  gnuplot ../band.gp
   gnuplot ../tdos.gp
+  mv band.png ${upf_1st_name}_band.png
+  cp ${upf_1st_name}_band.png ../plot/${upf_1st_name}_band.png
   mv tdos.png ${upf_1st_name}_tdos.png
   cp ${upf_1st_name}_tdos.png ../plot/${upf_1st_name}_tdos.png
   grep -A 3 "CELL_PARAMETERS" run.vc-relax.out | tail -4 >> ../cell_param.txt
