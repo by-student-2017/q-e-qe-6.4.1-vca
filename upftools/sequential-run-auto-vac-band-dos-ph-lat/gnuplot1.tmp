@@ -1,0 +1,8 @@
+#!/usr/bin/gnuplot -persist
+
+set terminal png
+set output "case.phdos.png"
+#
+set xlabel "Frequency / cm^{-1}"
+set ylabel "Density of States"
+plot 'case.phdos' u 1:2 w l lw 3

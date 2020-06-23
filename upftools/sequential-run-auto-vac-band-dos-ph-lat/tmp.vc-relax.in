@@ -1,0 +1,43 @@
+&control
+  calculation='vc-relax'
+  restart_mode='from_scratch',
+  prefix='case'
+  pseudo_dir = './',
+  outdir='./work/'
+  nstep = 9000
+/
+&system
+  ibrav=  0, 
+  celldm(1) =7.456, 
+  nat=  5, 
+  ntyp= 4,
+  ecutwfc =52.0,
+  occupations = 'smearing' ,
+  smearing = 'mp' ,
+  degauss = 0.01 
+/
+&electrons
+  conv_thr =  1.0d-4
+  mixing_beta = 0.7
+/
+&ions
+/
+&cell
+/
+CELL_PARAMETERS {alat}
+  1.0 0.0 0.0
+  0.0 1.0 0.0
+  0.0 0.0 1.0
+ATOMIC_SPECIES
+  Sr  87.62   Sr.pbe-spn-rrkjus_psl.1.0.0.UPF
+  Ti  47.867  Ti.pbe-spn-rrkjus_psl.1.0.0.UPF
+  O   15.999  O.pbe-n-rrkjus_psl.1.0.0.UPF
+  Xx1 15.999  mix.UPF
+ATOMIC_POSITIONS (alat)
+  Sr  0.0 0.0 0.0
+  Ti  0.5 0.5 0.5
+  O   0.5 0.0 0.5
+  O   0.5 0.5 0.0
+  Xx1 0.0 0.5 0.5
+K_POINTS automatic
+  3 3 3   1 1 1
