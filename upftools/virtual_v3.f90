@@ -142,10 +142,22 @@ PROGRAM virtual_test
      WRITE (stdout,"('Pseudopotential successfully written')")
      WRITE (stdout,"('Please review the content of the PP_INFO fields')")
      WRITE (stdout,"('*** Please TEST BEFORE USING !!! ***')")
+     WRITE (stdout,*) "Base UPF is ",filein(1)
+     WRITE (stdout,"('*** Attention !!! USPP+GIPAW and PAW are development version ***')") 
+     IF ( upf(1)%zp /= upf(2)%zp ) WRITE (stdout, *) "CAUTION !!! "//& 
+       "You are mixing pseudos with different number of electrons in valence"
+     IF (upf(1)%lmax /= upf(2)%lmax ) WRITE ( stdout, *) "CAUTION !!! " //& 
+      " You are mixing pseudos that  act on different angular momenta " 
+     IF (upf(1)%lmax_rho /= upf(2)%lmax_rho ) WRITE ( stdout, *) "CAUTION !!! " //& 
+      " You are mixing pseudos that  act on different angular momenta " 
+     IF (upf(1)%paw%lmax_aug /= upf(2)%paw%lmax_aug ) WRITE ( stdout, *) "CAUTION !!! " //& 
+      " You are mixing pseudos that  act on different angular momenta " 
+     IF ( upf(1)%nbeta /= upf(2)%nbeta ) WRITE ( stdout, *) "CAUTION !!! " //&
+      " You are mixing pseudos with a different number of projectors " 
      !     ----------------------------------------------------------
      !
    ENDIF
-  CALL environment_end('VIRTUAL_V2.X')
+  CALL environment_end('VIRTUAL_V3.X')
 #if defined(__MPI)
   CALL mp_global_end()
 #endif
@@ -328,10 +340,7 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
   IF (matches(upf(1)%typ, "USPP") .and. matches(upf(2)%typ, "USPP") .and. &
     (upf(1)%has_gipaw .eqv. upf(2)%has_gipaw)) THEN
      upf_vca%typ = "USPP"
-  ELSE
-     CALL errore('virtual_v3.x: ', 'potential types are not match !!!', 1) 
-  ENDIF
-  IF (matches(upf(1)%typ, "PAW") .and. matches(upf(2)%typ, "PAW") .and.  &
+  ELSE IF (matches(upf(1)%typ, "PAW") .and. matches(upf(2)%typ, "PAW") .and.  &
     (upf(1)%has_gipaw .eqv. upf(2)%has_gipaw) .and. (upf(1)%paw%augshape == upf(2)%paw%augshape)) THEN
      upf_vca%typ = "PAW"
   ELSE
@@ -652,8 +661,8 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
            aux2(1,1:upf(2)%mesh) = upf(2)%chi(1:upf(2)%mesh,i)
            CALL dosplineint( upf(2)%r(1:upf(2)%mesh), aux2, upf_r(1:upf_mesh), aux1 )
            ! chi(1:upf_mesh,i,2) = aux1(1,1:upf_mesh)
-           upf_chi(1:upf_mesh,i) =    x     * upf(1)%chi(1:upf_mesh,i) + &
-              (1.d0-x) * aux1 (1,1:upf_mesh)
+           upf_chi(1:upf_mesh,i) = x     * upf(1)%chi(1:upf_mesh,i) + &
+                                (1.d0-x) * aux1 (1,1:upf_mesh)
         ELSE
         upf_chi(1:upf_mesh,i) =    x     * upf(1)%chi(1:upf_mesh,i) + &
                                 (1.d0-x) * upf(2)%chi(1:upf_mesh,i)
@@ -692,19 +701,19 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
   IF (matches(upf_vca%typ, "PAW")) THEN
      !
      !pp_augmentation
-     ALLOCATE ( upf_paw_augmom(upf_nbeta,upf_nbeta,upf_paw_lmax_aug) )
-     upf_paw_augmom(1:upf_nbeta,1:upf_nbeta,0:upf_paw_lmax_aug) = 0.0
-     upf_paw_augmom(1:upf(1)%nbeta,1:upf(1)%nbeta,0:upf(1)%paw%lmax_aug) = &
-       upf(1)%paw%augmom(1:upf(1)%nbeta,1:upf(1)%nbeta,0:upf(1)%paw%lmax_aug)
-     upf_paw_augmom(upf(1)%nbeta+1:upf_nbeta,upf(1)%nbeta+1:upf_nbeta,0:upf(2)%paw%lmax_aug) = &
-       upf(2)%paw%augmom(1:upf(2)%nbeta,1:upf(2)%nbeta,0:upf(2)%paw%lmax_aug)
+     ALLOCATE ( upf_paw_augmom(upf_nbeta,upf_nbeta,0:2*upf_paw_lmax_aug) )
+     upf_paw_augmom(1:upf_nbeta,1:upf_nbeta,0:2*upf_paw_lmax_aug) = 0.0
+     upf_paw_augmom(1:upf(1)%nbeta,1:upf(1)%nbeta,0:2*upf(1)%paw%lmax_aug) = &
+              x * upf(1)%paw%augmom(1:upf(1)%nbeta,1:upf(1)%nbeta,0:2*upf(1)%paw%lmax_aug)
+     upf_paw_augmom(upf(1)%nbeta+1:upf_nbeta,upf(1)%nbeta+1:upf_nbeta,0:2*upf(2)%paw%lmax_aug) = &
+       (1.d0-x) * upf(2)%paw%augmom(1:upf(2)%nbeta,1:upf(2)%nbeta,0:2*upf(2)%paw%lmax_aug)
      !
-     !ALLOCATE ( upf_paw_augfun(1:upf_mesh,upf_nbeta,upf_nbeta,upf_paw_lmax_aug) )
-     !upf_paw_augfun(1:upf_mesh,1:upf_nbeta,1:upf_nbeta,0:upf_paw_lmax_aug) = 0.0
-     !upf_paw_augfun(1:upf_mesh,1:upf(1)%nbeta,1:upf(1)%nbeta,0:upf(1)%paw%lmax_aug) = &
-     !  upf(1)%paw%augfun(1:upf_mesh,1:upf(1)%nbeta,1:upf(1)%nbeta,0:upf(1)%paw%lmax_aug)
-     !upf_paw_augfun(1:upf_mesh,upf(1)%nbeta+1:upf_nbeta,upf(1)%nbeta+1:upf_nbeta,0:upf(2)%paw%lmax_aug) = &
-     !  upf(2)%paw%augfun(1:upf_mesh,1:upf(2)%nbeta,1:upf(2)%nbeta,0:upf(2)%paw%lmax_aug)
+     !ALLOCATE ( upf_paw_augfun(1:upf_mesh,upf_nbeta,upf_nbeta,0:2*upf_paw_lmax_aug) )
+     !upf_paw_augfun(1:upf_mesh,1:upf_nbeta,1:upf_nbeta,0:2*upf_paw_lmax_aug) = 0.0
+     !upf_paw_augfun(1:upf_mesh,1:upf(1)%nbeta,1:upf(1)%nbeta,0:2*upf(1)%paw%lmax_aug) = &
+     !         x * upf(1)%paw%augfun(1:upf_mesh,1:upf(1)%nbeta,1:upf(1)%nbeta,0:2*upf(1)%paw%lmax_aug)
+     !upf_paw_augfun(1:upf_mesh,upf(1)%nbeta+1:upf_nbeta,upf(1)%nbeta+1:upf_nbeta,0:2*upf(2)%paw%lmax_aug) = &
+     !  (1.d0-x) * upf(2)%paw%augfun(1:upf_mesh,1:upf(2)%nbeta,1:upf(2)%nbeta,0:2*upf(2)%paw%lmax_aug)
      !
      !pp_paw_ae_rho_atc
      ALLOCATE ( upf_paw_ae_rho_atc(upf_mesh) )
@@ -754,6 +763,82 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
           upf_pswfc(1:upf_mesh, upf(1)%nbeta+j) = (1.d0-x) * upf(2)%pswfc(1:upf_mesh,j)
        ENDIF
      ENDDO
+     !
+     !pp_pfunc
+     ALLOCATE( upf_paw_pfunc(upf_mesh, upf_nbeta, upf_nbeta) )
+     upf_paw_pfunc(upf_mesh,1:upf_nbeta,1:upf_nbeta) = 0.0
+     IF (interpolate) THEN
+        WRITE (*,*) " interpolate pfunc"
+        DO i=1,upf(2)%nbeta
+            DO j=1,upf(2)%nbeta
+               aux2(1,1:upf(2)%mesh) = upf(2)%paw%pfunc(1:upf(2)%mesh,i,j)
+               CALL dosplineint( upf(2)%r(1:upf(2)%mesh), aux2, upf_r(1:upf_mesh), aux1 )
+               ! pfunc(1:upf_mesh,2) = aux1(1,1:upf_mesh)
+               WRITE (*,*) " done"
+            ENDDO
+        ENDDO
+     ENDIF
+     upf_paw_pfunc(upf_mesh,1:upf_nbeta,1:upf_nbeta) = &
+             x  * upf(1)%paw%pfunc(upf_mesh,1:upf(1)%nbeta,1:upf(1)%nbeta)
+     upf_paw_pfunc(upf_mesh,upf(1)%nbeta+1:upf_nbeta,upf(1)%nbeta+1:upf_nbeta) = &
+       (1.d0-x) * upf(2)%paw%pfunc(upf_mesh,1:upf(2)%nbeta,1:upf(2)%nbeta)
+     !
+     !pp_ptfunc
+     ALLOCATE( upf_paw_ptfunc(upf_mesh, upf_nbeta, upf_nbeta) )
+     upf_paw_ptfunc(upf_mesh,1:upf_nbeta,1:upf_nbeta) = 0.0
+     IF (interpolate) THEN
+        WRITE (*,*) " interpolate ptfunc"
+        DO i=1,upf(2)%nbeta
+            DO j=1,upf(2)%nbeta
+               aux2(1,1:upf(2)%mesh) = upf(2)%paw%ptfunc(1:upf(2)%mesh,i,j)
+               CALL dosplineint( upf(2)%r(1:upf(2)%mesh), aux2, upf_r(1:upf_mesh), aux1 )
+               ! ptfunc(1:upf_mesh,2) = aux1(1,1:upf_mesh)
+               WRITE (*,*) " done"
+            ENDDO
+        ENDDO
+     ENDIF
+     upf_paw_ptfunc(upf_mesh,1:upf_nbeta,1:upf_nbeta) = &
+             x  * upf(1)%paw%ptfunc(upf_mesh,1:upf(1)%nbeta,1:upf(1)%nbeta)
+     upf_paw_ptfunc(upf_mesh,upf(1)%nbeta+1:upf_nbeta,upf(1)%nbeta+1:upf_nbeta) = &
+       (1.d0-x) * upf(2)%paw%ptfunc(upf_mesh,1:upf(2)%nbeta,1:upf(2)%nbeta)
+     !
+     !pp_pfunc_rel
+     IF (upf_vca%has_so) THEN
+        ALLOCATE( upf_paw_pfunc_rel(upf_mesh, upf_nbeta, upf_nbeta) )
+        upf_paw_pfunc_rel(upf_mesh,1:upf_nbeta,1:upf_nbeta) = 0.0
+        IF (interpolate) THEN
+           WRITE (*,*) " interpolate pfunc_rel"
+           DO i=1,upf(2)%nbeta
+              DO j=1,upf(2)%nbeta
+                 aux2(1,1:upf(2)%mesh) = upf(2)%paw%pfunc_rel(1:upf(2)%mesh,i,j)
+                 CALL dosplineint( upf(2)%r(1:upf(2)%mesh), aux2, upf_r(1:upf_mesh), aux1 )
+                 ! pfunc_rel(1:upf_mesh,2) = aux1(1,1:upf_mesh)
+                 WRITE (*,*) " done"
+              ENDDO
+           ENDDO
+        ENDIF
+        upf_paw_pfunc_rel(upf_mesh,1:upf_nbeta,1:upf_nbeta) = &
+                x  * upf(1)%paw%pfunc_rel(upf_mesh,1:upf(1)%nbeta,1:upf(1)%nbeta)
+        upf_paw_pfunc_rel(upf_mesh,upf(1)%nbeta+1:upf_nbeta,upf(1)%nbeta+1:upf_nbeta) = &
+          (1.d0-x) * upf(2)%paw%pfunc_rel(upf_mesh,1:upf(2)%nbeta,1:upf(2)%nbeta)
+        !
+        !pp_aewfc_rel
+        ALLOCATE ( upf_paw_aewfc_rel(upf_mesh,upf_nbeta) )
+        DO j=1,upf(1)%nbeta
+           upf_paw_aewfc_rel(1:upf_mesh,j) = x * upf(1)%paw%aewfc_rel(1:upf_mesh,j)
+        ENDDO
+        DO j=1,upf(2)%nbeta
+           IF (interpolate) THEN
+              WRITE (*,*) " interpolate aewfc_rel"
+              aux2(1,1:upf(2)%mesh) = upf(2)%paw%aewfc_rel(1:upf(2)%mesh,j)
+              CALL dosplineint( upf(2)%r(1:upf(2)%mesh), aux2, upf_r(1:upf_mesh), aux1 )
+              ! upf_paw_aewfc_rel(1:upf_mesh,i,2) = aux1(1,1:upf_mesh)
+              upf_paw_aewfc_rel(1:upf_mesh, upf(1)%nbeta+j) = (1.d0-x) * aux1(1,1:upf_mesh)
+           ELSE
+              upf_paw_aewfc_rel(1:upf_mesh, upf(1)%nbeta+j) = (1.d0-x) * upf(2)%paw%aewfc_rel(1:upf_mesh,j)
+           ENDIF
+        ENDDO
+     ENDIF
      !
      !pp_paw_ae_vloc
      ALLOCATE ( upf_paw_ae_vloc(upf_mesh) )
@@ -1027,55 +1112,134 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
   IF (matches(upf_vca%typ, "PAW")) THEN
      NULLIFY( upf_vca%paw%augmom )
      NULLIFY( upf_vca%paw%ae_rho_atc )
-     NULLIFY( upf_vca%paw%aewfc_rel )
+     NULLIFY( upf_vca%aewfc )
+     NULLIFY( upf_vca%pswfc )
      NULLIFY( upf_vca%paw%pfunc )
-     NULLIFY( upf_vca%paw%pfunc_rel )
      NULLIFY( upf_vca%paw%ptfunc )
      NULLIFY( upf_vca%paw%ae_vloc )
-     NULLIFY( upf_vca%els, &
-              upf_vca%lchi, &
-              upf_vca%nchi, &
-              upf_vca%paw%oc, &
-              upf_vca%rcut_chi, &
-              upf_vca%rcutus_chi, &
-              upf_vca%epseu &
-            )
+     NULLIFY( upf_vca%paw%oc )
      !
-     ALLOCATE( upf_vca%paw%augmom(upf_nbeta,upf_nbeta, 0:2*upf_lmax))
+     ALLOCATE( upf_vca%paw%augmom(upf_nbeta, upf_nbeta, 0:2*upf_lmax))
      ALLOCATE( upf_vca%paw%ae_rho_atc(upf_mesh) )
+     ALLOCATE( upf_vca%aewfc(upf_mesh,upf_nbeta) )
+     ALLOCATE( upf_vca%pswfc(upf_mesh,upf_nbeta) )
      ALLOCATE( upf_vca%paw%pfunc(upf_mesh, upf_nbeta, upf_nbeta) )
-     ALLOCATE( upf_vca%paw%pfunc_rel(upf_mesh, upf_nbeta, upf_nbeta) )
      ALLOCATE( upf_vca%paw%ptfunc(upf_mesh, upf_nbeta, upf_nbeta) )
      ALLOCATE( upf_vca%paw%ae_vloc(upf_mesh) )
+     ALLOCATE( upf_vca%paw%oc(upf_nbeta) )
+     !
+     !upf_vca%paw%augshape = upf_paw_augshape
+     !upf_vca%paw%raug = upf_paw_raug
+     !upf_vca%core_enery = upf_core_energy 
+     !upf_vca%paw%iraug = upf_paw_iraug
+     !
+     !upf_vca%lmax_rho = upf_lmax_rho
+     !upf_vca%paw%lmax_aug = upf_paw_lmax_aug
+     !
+     upf_vca%paw%augmom = upf_paw_augmom
+     upf_vca%paw%ae_rho_atc = upf_paw_ae_rho_atc
+     upf_vca%aewfc = upf_aewfc
+     upf_vca%pswfc = upf_pswfc
+     upf_vca%paw%pfunc = upf_paw_pfunc
+     upf_vca%paw%ptfunc = upf_paw_ptfunc
+     upf_vca%paw%ae_vloc = upf_paw_ae_vloc
+     !
+     !upf_vca%paw%raug    = upf_paw_raug
+     !upf_vca%paw%iraug   = upf_paw_iraug
+     !upf_vca%dx       = upf_dx
+     !upf_vca%xmin     = upf_xmin
+     !upf_vca%zmesh    = upf_zmesh
+     !
+     ! occ, f6,2
+     upf_vca%paw%oc(1:upf(1)%nbeta) = x * upf(1)%paw%oc
+     upf_vca%paw%oc(upf(1)%nbeta+1:upf_nbeta) = (1.d0-x) * upf(2)%paw%oc
+     !
+     IF (upf_vca%has_so) THEN
+        NULLIFY( upf_vca%paw%pfunc_rel )
+        ALLOCATE( upf_vca%paw%pfunc_rel(upf_mesh, upf_nbeta, upf_nbeta) )
+        upf_vca%paw%pfunc_rel = upf_paw_pfunc_rel
+        !
+        NULLIFY( upf_vca%paw%aewfc_rel )
+        ALLOCATE( upf_vca%paw%aewfc_rel(upf_mesh,upf_nbeta) )
+        upf_vca%paw%aewfc_rel = upf_paw_aewfc_rel
+     ENDIF
+  ENDIF
+
+  IF (upf_vca%has_gipaw) THEN
+     !NULLIFY( upf_vca%grid ) 
+     NULLIFY( upf_vca%els, upf_vca%lchi, upf_vca%nchi, upf_vca%jchi, upf_vca%oc )
+     !NULLIFY( upf_vca%r, upf_vca%rab )
+     !NULLIFY( upf_vca%rho_atc, upf_vca%vloc )
+     !NULLIFY( upf_vca%nn)
+     !NULLIFY( upf_vca%els_beta)
+     !NULLIFY( upf_vca%rcut_chi, upf_vca%rcutus_chi )
+     !NULLIFY( upf_vca%epseu)
+     !NULLIFY( upf_vca%vnl)
+     !NULLIFY( upf_vca%aewfc, upf_vca%pswfc )
+     !NULLIFY( upf_vca%rinner )
+     !NULLIFY( upf_vca%chi )
+     !NULLIFY( upf_vca%rho_at )
+     !NULLIFY ( upf_vca%gipaw_core_orbital_n )
+     !NULLIFY ( upf_vca%gipaw_core_orbital_l )
+     !NULLIFY ( upf_vca%gipaw_core_orbital_el )
+     !NULLIFY ( upf_vca%gipaw_core_orbital )
+     !NULLIFY ( upf_vca%gipaw_vlocal_ae )
+     !NULLIFY ( upf_vca%gipaw_vlocal_ps )
+     NULLIFY ( upf_vca%gipaw_wfs_el )
+     NULLIFY ( upf_vca%gipaw_wfs_ll )
+     NULLIFY ( upf_vca%gipaw_wfs_rcut )
+     NULLIFY ( upf_vca%gipaw_wfs_rcutus )
+     NULLIFY ( upf_vca%gipaw_wfs_ae )
+     NULLIFY ( upf_vca%gipaw_wfs_ps )
+     ALLOCATE( upf_vca%gipaw_wfs_el(upf_nbeta) )
+     ALLOCATE( upf_vca%gipaw_wfs_ll(upf_nbeta) )
+     ALLOCATE( upf_vca%gipaw_wfs_rcut(upf_nbeta) )
+     ALLOCATE( upf_vca%gipaw_wfs_rcutus(upf_nbeta) )
+     ALLOCATE( upf_vca%gipaw_wfs_ae(upf_mesh,upf_nbeta) )
+     ALLOCATE( upf_vca%gipaw_wfs_ps(upf_mesh,upf_nbeta) )
      ALLOCATE( upf_vca%els(upf_ntwfc), &
+               upf_vca%oc(upf_ntwfc), &
                upf_vca%lchi(upf_ntwfc), &
                upf_vca%nchi(upf_ntwfc), &
-               upf_vca%paw%oc(upf_ntwfc), &
                upf_vca%rcut_chi(upf_ntwfc), &
                upf_vca%rcutus_chi(upf_ntwfc), &
                upf_vca%epseu(upf_ntwfc) &
              )
      !
-     upf_vca%paw%augshape = upf_paw_augshape
-     upf_vca%paw%raug = upf_paw_raug
-     !upf_vca%core_enery = upf_core_energy 
-     upf_vca%paw%iraug = upf_paw_iraug
-     !
-     upf_vca%lmax_rho = upf_lmax_rho
-     upf_vca%paw%lmax_aug = upf_paw_lmax_aug
-     !
-     upf_vca%paw%augmom = upf_paw_augmom
-     upf_vca%paw%ae_rho_atc = upf_paw_ae_rho_atc
-     upf_vca%aewfc = upf_aewfc
-     !
-     ALLOCATE( upf_vca%paw%ptfunc(upf_mesh, upf_nbeta, upf_nbeta) )
-     upf_vca%paw%ptfunc = upf_paw_ptfunc
-     !
-     upf_vca%paw%raug    = upf_paw_raug
-     upf_vca%paw%iraug   = upf_paw_iraug
-     upf_vca%dx       = upf_dx
-     upf_vca%xmin     = upf_xmin
-     upf_vca%zmesh    = upf_zmesh
+     !upf_vca%r = upf(1)%r
+     upf_vca%tvanp = upf(1)%tvanp.or.upf(2)%tvanp
+     upf_vca%tcoulombp = upf(1)%tcoulombp.or.upf(2)%tcoulombp
+     !upf_vca%nlcc    = upf_nlcc
+     !upf_vca%dft     = upf_dft
+     !upf_vca%zp      = upf_zp
+     !upf_vca%etotps  = upf_etotps
+     !upf_vca%ecutwfc = upf_ecutwfc
+     !upf_vca%ecutrho = upf_ecutrho
+     !upf_vca%nv      = upf_nv
+     !upf_vca%lmax    = upf_lmax
+     !upf_vca%lmax_rho = upf_lmax_rho
+     !upf_vca%nwfc    = upf_ntwfc
+     !upf_vca%nbeta   = upf_nbeta
+     !upf_vca%kkbeta  = upf_kkbeta
+     !upf_vca%mesh    = upf_mesh
+     !upf_vca%xmin    = upf_xmin
+     !upf_vca%rmax    = upf_rmax
+     !upf_vca%zmesh   = upf_zmesh
+     !upf_vca%dx      = upf_dx
+     !upf_vca%lloc    = upf_lloc
+     !upf_vca%rcloc   = upf_rcloc
+     !upf_vca%q_with_l = upf_q_with_l
+     !upf_vca%nqf     = upf_nqf
+     !upf_vca%nqlc    = upf_nqlc
+     !upf_vca%qqq_eps = upf_qqq_eps
+     upf_vca%has_wfc = upf(1)%has_wfc.or.upf(2)%has_wfc
+     !upf_vca%paw_data_format = upf_paw_data_format
+     upf_vca%tpawp   = upf(1)%tpawp.or.upf(2)%tpawp
+     upf_vca%has_gipaw = upf(1)%has_gipaw.or.upf(2)%has_gipaw
+     upf_vca%paw_as_gipaw = upf(1)%paw_as_gipaw.or.upf(2)%paw_as_gipaw
+     !upf_vca%gipaw_data_format = upf_gipaw_data_format
+     !upf_vca%gipaw_ncore_orbitals = upf_gipaw_ncore_orbitals
+     !upf_vca%gipaw_wfs_nchannels = upf_gipaw_wfs_nchannels
      !
      ! nl, a2
      upf_vca%els(1:upf(1)%nbeta) = upf(1)%els
@@ -1105,99 +1269,14 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
      upf_vca%epseu(1:upf(1)%nbeta) = upf(1)%epseu
      upf_vca%epseu(upf(1)%nbeta+1:upf_nbeta) = upf(2)%epseu
      !
-     IF (upf_vca%has_so) THEN
-        upf_vca%paw%pfunc_rel = upf_paw_pfunc_rel
-        !
-        upf_vca%paw%aewfc_rel = upf_paw_aewfc_rel
-     ENDIF
-  ENDIF
-
-  IF (upf_vca%has_gipaw) THEN
-     NULLIFY( upf_vca%grid ) 
-     NULLIFY( upf_vca%els, upf_vca%lchi, upf_vca%nchi, upf_vca%jchi, upf_vca%oc )
-     NULLIFY( upf_vca%r, upf_vca%rab )
-     NULLIFY( upf_vca%rho_atc, upf_vca%vloc )
-     NULLIFY( upf_vca%nn)
-     NULLIFY( upf_vca%els_beta)
-     NULLIFY( upf_vca%rcut_chi, upf_vca%rcutus_chi )
-     NULLIFY( upf_vca%epseu)
-     NULLIFY( upf_vca%vnl)
-     NULLIFY( upf_vca%aewfc, upf_vca%pswfc )
-     NULLIFY( upf_vca%rinner )
-     NULLIFY( upf_vca%chi )
-     NULLIFY( upf_vca%rho_at )
-     NULLIFY ( upf_vca%gipaw_core_orbital_n )
-     NULLIFY ( upf_vca%gipaw_core_orbital_l )
-     NULLIFY ( upf_vca%gipaw_core_orbital_el )
-     NULLIFY ( upf_vca%gipaw_core_orbital )
-     NULLIFY ( upf_vca%gipaw_vlocal_ae )
-     NULLIFY ( upf_vca%gipaw_vlocal_ps )
-     NULLIFY ( upf_vca%gipaw_wfs_el )
-     NULLIFY ( upf_vca%gipaw_wfs_ll )
-     NULLIFY ( upf_vca%gipaw_wfs_ae )
-     NULLIFY ( upf_vca%gipaw_wfs_rcut )
-     NULLIFY ( upf_vca%gipaw_wfs_rcutus )
-     NULLIFY ( upf_vca%gipaw_wfs_ps )
-     ALLOCATE( upf_vca%els(upf_ntwfc), &
-               upf_vca%oc(upf_ntwfc), &
-               upf_vca%lchi(upf_ntwfc), &
-               upf_vca%nchi(upf_ntwfc), &
-               upf_vca%rcut_chi(upf_ntwfc), &
-               upf_vca%rcutus_chi(upf_ntwfc), &
-               upf_vca%epseu(upf_ntwfc) &
-             )
-     !
-     upf_vca%tvanp = upf(1)%tvanp.or.upf(2)%tvanp
-     upf_vca%tcoulombp = upf(1)%tcoulombp.or.upf(2)%tcoulombp
-     upf_vca%nlcc    = upf_nlcc
-     !upf_vca%dft     = upf_dft
-     upf_vca%zp      = upf_zp
-     upf_vca%etotps  = upf_etotps
-     upf_vca%ecutwfc = upf_ecutwfc
-     upf_vca%ecutrho = upf_ecutrho
-     !upf_vca%nv      = upf_nv
-     upf_vca%lmax    = upf_lmax
-     upf_vca%lmax_rho = upf_lmax_rho
-     upf_vca%nwfc    = upf_ntwfc
-     upf_vca%nbeta   = upf_nbeta
-     !upf_vca%kkbeta  = upf_kkbeta
-     upf_vca%mesh    = upf_mesh
-     upf_vca%xmin    = upf_xmin
-     upf_vca%rmax    = upf_rmax
-     !upf_vca%zmesh   = upf_zmesh
-     upf_vca%dx      = upf_dx
-     !upf_vca%lloc    = upf_lloc
-     upf_vca%rcloc   = upf_rcloc
-     !upf_vca%q_with_l = upf_q_with_l
-     upf_vca%nqf     = upf_nqf
-     upf_vca%nqlc    = upf_nqlc
-     upf_vca%qqq_eps = upf_qqq_eps
-     upf_vca%has_wfc = upf(1)%has_wfc.or.upf(2)%has_wfc
-     upf_vca%paw_data_format = upf_paw_data_format
-     upf_vca%tpawp   = upf(1)%tpawp.or.upf(2)%tpawp
-     upf_vca%has_gipaw = upf(1)%has_gipaw.or.upf(2)%has_gipaw
-     upf_vca%paw_as_gipaw = upf(1)%paw_as_gipaw.or.upf(2)%paw_as_gipaw
-     !upf_vca%gipaw_data_format = upf_gipaw_data_format
-     !upf_vca%gipaw_ncore_orbitals = upf_gipaw_ncore_orbitals
-     !upf_vca%gipaw_wfs_nchannels = upf_gipaw_wfs_nchannels
-     !
-     upf_vca%els(1:upf(1)%nbeta) = upf(1)%els
-     upf_vca%els(upf(1)%nbeta+1:upf_nbeta) = upf(2)%els
-     !
-     upf_vca%nchi(1:upf(1)%nbeta) = x * upf(1)%nchi
-     upf_vca%nchi(upf(1)%nbeta+1:upf_nbeta) = (1.d0-x) * upf(2)%nchi
-     !
-     upf_vca%lchi(1:upf(1)%nbeta) = x * upf(1)%lchi
-     upf_vca%lchi(upf(1)%nbeta+1:upf_nbeta) = (1.d0-x) * upf(2)%lchi
-     !
-     upf_vca%oc(1:upf(1)%nbeta) = x * upf(1)%oc
-     upf_vca%oc(upf(1)%nbeta+1:upf_nbeta) = (1.d0-x) * upf(2)%oc
-     !
-     upf_vca%rcut_chi(1:upf(1)%nbeta) = upf(1)%rcut_chi
-     upf_vca%rcut_chi(upf(1)%nbeta+1:upf_nbeta) = upf(2)%rcut_chi
-     !
-     upf_vca%rcutus_chi(1:upf(1)%nbeta) = upf(1)%rcutus_chi
-     upf_vca%rcutus_chi(upf(1)%nbeta+1:upf_nbeta) = upf(2)%rcutus_chi
+     upf_vca%gipaw_wfs_el     = upf_gipaw_wfs_el
+     !upf_vca%gipaw_wfs_n    = upf_gipaw_wfs_n
+     !upf_vca%gipaw_wfs_l    = upf_gipaw_wfs_l
+     upf_vca%gipaw_wfs_ll     = upf_gipaw_wfs_ll
+     upf_vca%gipaw_wfs_rcut   = upf_gipaw_wfs_rcut
+     upf_vca%gipaw_wfs_rcutus = upf_gipaw_wfs_rcutus
+     upf_vca%gipaw_wfs_ae     = upf_gipaw_wfs_ae
+     upf_vca%gipaw_wfs_ps     = upf_gipaw_wfs_ps
   ENDIF
 
   ! !! DEBUG
@@ -1218,18 +1297,30 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
   ! WRITE (*,*) "shape of upf(1)%rcut = ", shape(upf(1)%rcut)
   ! WRITE (*,*) "shape of upf(1)%rcutus = ", shape(upf(1)%rcutus)
   ! WRITE (*,*) "PAW"
-  ! WRITE (*,*) "shape of upf(1)%augmom = ", shape(upf(1)%augmom)
-  ! WRITE (*,*) "shape of upf(1)%augfun = ", shape(upf(1)%augfun)
-  ! WRITE (*,*) "shape of upf(1)%upf_ae_rho_atc = ", shape(upf(1)%upf_ae_rho_atc)
+  ! WRITE (*,*) "shape of upf(1)%paw%augmom = ", shape(upf(1)%paw%augmom)
+  ! WRITE (*,*) "shape of upf(1)%paw%augfun = ", shape(upf(1)%paw%augfun)
+  ! WRITE (*,*) "shape of upf(1)%paw%ae_rho_atc = ", shape(upf(1)%paw%ae_rho_atc)
   ! WRITE (*,*) "shape of upf(1)%upf_aewfc = ", shape(upf(1)%upf_aewfc)
   ! WRITE (*,*) "shape of upf(1)%upf_pswfc = ", shape(upf(1)%upf_pswfc)
-  ! WRITE (*,*) "shape of upf(1)%ae_vloc = ", shape(upf(1)%ae_vloc)
+  ! WRITE (*,*) "shape of upf(1)%paw%pfunc = ", shape(upf(1)%paw%pfunc)
+  ! WRITE (*,*) "shape of upf(1)%paw%pfunc_rel = ", shape(upf(1)%paw%pfunc_rel)
+  ! WRITE (*,*) "shape of upf(1)%paw%ptfunc = ", shape(upf(1)%paw%ptfunc)
+  ! WRITE (*,*) "shape of upf(1)%paw%aewfc_rel = ", shape(upf(1)%paw%aewfc_rel)
+  ! WRITE (*,*) "shape of upf(1)%paw%ae_vloc = ", shape(upf(1)%paw%ae_vloc)
   ! WRITE (*,*) "shape of upf(1)%kdiff = ", shape(upf(1)%kdiff)
   ! WRITE (*,*) "shape of upf(1)%sqr = ", shape(upf(1)%sqr)
   ! WRITE (*,*) "GIPAW"
   ! WRITE (*,*) "shape of upf(1)%gipaw_core_orbital = ", shape(upf(1)%gipaw_core_orbital)
   ! WRITE (*,*) "shape of upf(1)%vlocal_ae = ", shape(upf(1)%vlocal_ae)
   ! WRITE (*,*) "shape of upf(1)%vlocal_ps = ", shape(upf(1)%vlocal_ps)
+  ! WRITE (*,*) "shape of upf(1)%gipaw_wfs_el = ", shape(upf(1)%gipaw_wfs_el)
+  ! WRITE (*,*) "shape of upf(1)%gipaw_wfs_n = ", shape(upf(1)%gipaw_wfs_n)
+  ! WRITE (*,*) "shape of upf(1)%gipaw_wfs_l = ", shape(upf(1)%gipaw_wfs_l)
+  ! WRITE (*,*) "shape of upf(1)%gipaw_wfs_ll = ", shape(upf(1)%gipaw_wfs_ll)
+  ! WRITE (*,*) "shape of upf(1)%gipaw_wfs_rcut = ", shape(upf(1)%gipaw_wfs_rcut)
+  ! WRITE (*,*) "shape of upf(1)%gipaw_wfs_rcutus = ", shape(upf(1)%gipaw_wfs_rcutus)
+  ! WRITE (*,*) "shape of upf(1)%gipaw_wfs_ae = ", shape(upf(1)%gipaw_wfs_ae)
+  ! WRITE (*,*) "shape of upf(1)%gipaw_wfs_ps = ", shape(upf(1)%gipaw_wfs_ps)
   ! WRITE (*,*) ""
   ! !!! upf(2)
   ! WRITE (*,*) "upf(2)%nbeta = ", upf(2)%nbeta
@@ -1248,18 +1339,30 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
   ! WRITE (*,*) "shape of upf(2)%rcut = ", shape(upf(2)%rcut)
   ! WRITE (*,*) "shape of upf(2)%rcutus = ", shape(upf(2)%rcutus)
   ! WRITE (*,*) "PAW"
-  ! WRITE (*,*) "shape of upf(2)%augmom = ", shape(upf(2)%augmom)
-  ! WRITE (*,*) "shape of upf(2)%augfun = ", shape(upf(2)%augfun)
-  ! WRITE (*,*) "shape of upf(2)%upf_ae_rho_atc = ", shape(upf(2)%upf_ae_rho_atc)
+  ! WRITE (*,*) "shape of upf(2)%paw%augmom = ", shape(upf(2)%paw%augmom)
+  ! WRITE (*,*) "shape of upf(2)%paw%augfun = ", shape(upf(2)%paw%augfun)
+  ! WRITE (*,*) "shape of upf(2)%paw%ae_rho_atc = ", shape(upf(2)%paw%ae_rho_atc)
   ! WRITE (*,*) "shape of upf(2)%upf_aewfc = ", shape(upf(2)%upf_aewfc)
   ! WRITE (*,*) "shape of upf(2)%upf_pswfc = ", shape(upf(2)%upf_pswfc)
-  ! WRITE (*,*) "shape of upf(2)%ae_vloc = ", shape(upf(2)%ae_vloc)
+  ! WRITE (*,*) "shape of upf(2)%paw%pfunc = ", shape(upf(2)%paw%pfunc)
+  ! WRITE (*,*) "shape of upf(2)%paw%pfunc_rel = ", shape(upf(2)%paw%pfunc_rel)
+  ! WRITE (*,*) "shape of upf(2)%paw%ptfunc = ", shape(upf(2)%paw%ptfunc)
+  ! WRITE (*,*) "shape of upf(2)%paw%aewfc_rel = ", shape(upf(2)%paw%aewfc_rel)
+  ! WRITE (*,*) "shape of upf(2)%paw%ae_vloc = ", shape(upf(2)%paw%ae_vloc)
   ! WRITE (*,*) "shape of upf(2)%kdiff = ", shape(upf(2)%kdiff)
   ! WRITE (*,*) "shape of upf(2)%sqr = ", shape(upf(2)%sqr)
   ! WRITE (*,*) "GIPAW"
   ! WRITE (*,*) "shape of upf(2)%gipaw_core_orbital = ", shape(upf(2)%gipaw_core_orbital)
   ! WRITE (*,*) "shape of upf(2)%vlocal_ae = ", shape(upf(2)%vlocal_ae)
   ! WRITE (*,*) "shape of upf(2)%vlocal_ps = ", shape(upf(2)%vlocal_ps)
+  ! WRITE (*,*) "shape of upf(2)%gipaw_wfs_el = ", shape(upf(2)%gipaw_wfs_el)
+  ! WRITE (*,*) "shape of upf(2)%gipaw_wfs_n = ", shape(upf(2)%gipaw_wfs_n)
+  ! WRITE (*,*) "shape of upf(2)%gipaw_wfs_l = ", shape(upf(2)%gipaw_wfs_l)
+  ! WRITE (*,*) "shape of upf(2)%gipaw_wfs_ll = ", shape(upf(2)%gipaw_wfs_ll)
+  ! WRITE (*,*) "shape of upf(2)%gipaw_wfs_rcut = ", shape(upf(2)%gipaw_wfs_rcut)
+  ! WRITE (*,*) "shape of upf(2)%gipaw_wfs_rcutus = ", shape(upf(2)%gipaw_wfs_rcutus)
+  ! WRITE (*,*) "shape of upf(2)%gipaw_wfs_ae = ", shape(upf(2)%gipaw_wfs_ae)
+  ! WRITE (*,*) "shape of upf(2)%gipaw_wfs_ps = ", shape(upf(2)%gipaw_wfs_ps)
   ! WRITE (*,*) ""
   ! !!! upf_vca
   ! WRITE (*,*) "upf_vca%nbeta = ", upf_vca%nbeta
@@ -1276,19 +1379,30 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
   ! WRITE (*,*) "shape of upf_vca%rcut = ", shape(upf_vca%rcut)
   ! WRITE (*,*) "shape of upf_vca%rcutus = ", shape(upf_vca%rcutus)
   ! WRITE (*,*) "PAW"
-  ! WRITE (*,*) "shape of upf_vca%augmom = ", shape(upf_vca%augmom)
-  ! WRITE (*,*) "shape of upf_vca%augfun = ", shape(upf_vca%augfun)
-  ! WRITE (*,*) "shape of upf_vca%upf_ae_rho_atc = ", shape(upf_vca%upf_ae_rho_atc)
+  ! WRITE (*,*) "shape of upf_vca%paw%augmom = ", shape(upf_vca%paw%augmom)
+  ! WRITE (*,*) "shape of upf_vca%paw%augfun = ", shape(upf_vca%paw%augfun)
+  ! WRITE (*,*) "shape of upf_vca%paw%ae_rho_atc = ", shape(upf_vca%paw%ae_rho_atc)
   ! WRITE (*,*) "shape of upf_vca%upf_aewfc = ", shape(upf_vca%upf_aewfc)
   ! WRITE (*,*) "shape of upf_vca%upf_pswfc = ", shape(upf_vca%upf_pswfc)
-  ! WRITE (*,*) "shape of upf_vca%ae_vloc = ", shape(upf_vca%ae_vloc)
+  ! WRITE (*,*) "shape of upf_vca%paw%pfunc = ", shape(upf_vca%paw%pfunc)
+  ! WRITE (*,*) "shape of upf_vca%paw%pfunc_rel = ", shape(upf_vca%paw%pfunc_rel)
+  ! WRITE (*,*) "shape of upf_vca%paw%ptfunc = ", shape(upf_vca%paw%ptfunc)
+  ! WRITE (*,*) "shape of upf_vca%paw%aewfc_rel = ", shape(upf_vca%paw%aewfc_rel)
+  ! WRITE (*,*) "shape of upf_vca%paw%ae_vloc = ", shape(upf_vca%paw%ae_vloc)
   ! WRITE (*,*) "shape of upf_vca%kdiff = ", shape(upf_vca%kdiff)
   ! WRITE (*,*) "shape of upf_vca%sqr = ", shape(upf_vca%sqr)
   ! WRITE (*,*) "GIPAW"
   ! WRITE (*,*) "shape of upf_vca%gipaw_core_orbital = ", shape(upf_vca%gipaw_core_orbital)
   ! WRITE (*,*) "shape of upf_vca%vlocal_ae = ", shape(upf_vca%vlocal_ae)
   ! WRITE (*,*) "shape of upf_vca%vlocal_ps = ", shape(upf_vca%vlocal_ps)
+  ! WRITE (*,*) "shape of upf_vca%gipaw_wfs_el = ", shape(upf_vca%gipaw_wfs_el)
+  ! WRITE (*,*) "shape of upf_vca%gipaw_wfs_n = ", shape(upf_vca%gipaw_wfs_n)
+  ! WRITE (*,*) "shape of upf_vca%gipaw_wfs_l = ", shape(upf_vca%gipaw_wfs_l)
+  ! WRITE (*,*) "shape of upf_vca%gipaw_wfs_ll = ", shape(upf_vca%gipaw_wfs_ll)
+  ! WRITE (*,*) "shape of upf_vca%gipaw_wfs_rcut = ", shape(upf_vca%gipaw_wfs_rcut)
+  ! WRITE (*,*) "shape of upf_vca%gipaw_wfs_rcutus = ", shape(upf_vca%gipaw_wfs_rcutus)
+  ! WRITE (*,*) "shape of upf_vca%gipaw_wfs_ae = ", shape(upf_vca%gipaw_wfs_ae)
+  ! WRITE (*,*) "shape of upf_vca%gipaw_wfs_ps = ", shape(upf_vca%gipaw_wfs_ps)
   ! !! DEBUG
-
 
 END SUBROUTINE compute_virtual
