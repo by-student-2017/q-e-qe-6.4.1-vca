@@ -23,7 +23,7 @@
 ! virtual_v2: supports reading of UPF v2 format
 ! Author: Jingyang Wang (jw598@cornell.edu)
 !
-! virtual_v3: supports reading of UPF v2 format (USPP, PAW and GIPAW)
+! virtual_v3: supports reading of UPF v2 format (SL, USPP, PAW and GIPAW)
 ! Author: By Student
 !
 PROGRAM virtual_test
@@ -41,14 +41,6 @@ PROGRAM virtual_test
   USE pseudo_types, ONLY : paw_in_upf, pseudo_upf, &
                            nullify_paw_in_upf, nullify_pseudo_upf, &
                            deallocate_paw_in_upf, deallocate_pseudo_upf
-  !USE emend_upf_module
-  !USE wrappers
-  !USE upf_module
-  !USE write_upf_module
-  !!USE radial_grids
-  !USE environment
-  !USE mp_global
-  !USE io_global
 
   !
   IMPLICIT NONE
@@ -85,6 +77,7 @@ PROGRAM virtual_test
        !  nullify objects as soon as they are instantiated
 
        CALL nullify_pseudo_upf(upf(is))
+       CALL nullify_paw_in_upf(upf(is)%paw)
        CALL nullify_radial_grid(grid(is))
        INQUIRE ( FILE = TRIM(filein(is)), EXIST = exst )  
        IF (.NOT. exst ) CALL errore ( 'virtual_v3.x: ', TRIM(filein(is)) // ' not found', 5)  
@@ -179,10 +172,8 @@ END PROGRAM virtual_test
 SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
 
   USE pseudo_types, ONLY : paw_in_upf, pseudo_upf
-  !USE pseudo_types
   USE splinelib
   USE funct, ONLY : set_dft_from_name, get_iexch, get_icorr, get_igcx, get_igcc
-  !USE funct
 
   IMPLICIT NONE
 
@@ -265,7 +256,7 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
   real(8), ALLOCATABLE :: upf_paw_augmom(:,:,:)
   !
   ! pp augfun
-  real(8), ALLOCATABLE :: upf_paw_augfun(:,:,:,:)
+  !real(8), ALLOCATABLE :: upf_paw_augfun(:,:,:,:)
   !
   ! pp_ae_rho_atc (aeccharg)
   real(8), ALLOCATABLE :: upf_paw_ae_rho_atc(:)
@@ -292,10 +283,10 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
   real(8), ALLOCATABLE :: upf_paw_ae_vloc(:)
   !
   ! pp_kdiff
-  real(8), ALLOCATABLE :: upf_paw_kdiff(:,:)
+  !real(8), ALLOCATABLE :: upf_paw_kdiff(:,:)
   !
   ! pp_sqr
-  real(8), ALLOCATABLE :: upf_paw_sqr(:)
+  !real(8), ALLOCATABLE :: upf_paw_sqr(:)
   !
   ! GIPAW
   ! pp_gipaw_core_orbital_el
@@ -406,8 +397,8 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
   !upf_etotps  = upf(1)%etotps
   !
   upf_ntwfc = upf(1)%nwfc+upf(2)%nwfc
-  upf_ecutrho = max(upf(1)%ecutrho,upf(2)%ecutrho)
-  upf_ecutwfc = max(upf(1)%ecutwfc,upf(2)%ecutwfc)
+  upf_ecutrho = x * upf(1)%ecutrho + (1.d0-x) * upf(2)%ecutrho
+  upf_ecutwfc = x * upf(1)%ecutwfc + (1.d0-x) * upf(2)%ecutwfc
   upf_etotps  = x * upf(1)%etotps + (1.d0-x) * upf(2)%etotps
   !
   
@@ -417,8 +408,8 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
         CALL errore('virtual_v3.x: ', 'potential types (augshape) are not match !!!', 1) 
      upf_paw_augshape = upf(1)%paw%augshape
      upf_paw_lmax_aug = max(upf(1)%paw%lmax_aug, upf(2)%paw%lmax_aug)
-     upf_paw_raug     = upf(1)%paw%raug
-     upf_paw_iraug    = upf(1)%paw%iraug
+     upf_paw_raug     = x * upf(1)%paw%raug + (1.d0-x) * upf(1)%paw%raug
+     upf_paw_iraug    = x * upf(1)%paw%iraug + (1.d0-x) * upf(1)%paw%iraug
      upf_qqq_eps      = x * upf(1)%qqq_eps + (1.d0-x) * upf(2)%qqq_eps
      !
      WRITE (*,*) ""
@@ -718,7 +709,6 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
         IF (i==1) WRITE (*,*) "interpolate chi"
         aux2(1,1:upf(2)%mesh) = upf(2)%chi(1:upf(2)%mesh,i)
         CALL dosplineint( upf(2)%r(1:upf(2)%mesh), aux2, upf_r(1:upf_mesh), aux1 )
-        ! chi(1:upf_mesh,i,2) = aux1(1,1:upf_mesh)
         upf_chi(1:upf_mesh,upf(1)%nwfc+i) = (1.d0-x) * aux1 (1,1:upf_mesh)
         IF (i==upf(2)%nwfc) WRITE (*,*) " done"
      ELSE
@@ -965,7 +955,7 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
      ! pp_gipaw_vlocal_ae
      ALLOCATE ( upf_gipaw_vlocal_ae(upf_mesh) )
      IF (interpolate) THEN
-        WRITE (*,*) " interpolate gipaw_vlocal_ae"
+        WRITE (*,*) "interpolate gipaw_vlocal_ae"
         aux2(1,1:upf(2)%mesh) =  upf(2)%gipaw_vlocal_ae(1:upf(2)%mesh)
 
         CALL dosplineint( upf(2)%r(1:upf(2)%mesh), aux2, upf_r(1:upf_mesh), aux1 )
@@ -1175,8 +1165,8 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
 
   upf_vca%kkbeta = maxval(upf_vca%kbeta)
   ! For PAW augmentation charge may extend a bit further:
-  !IF(upf(1)%tpawp) upf(1)%kkbeta = MAX(upf(1)%kkbeta, upf(1)%paw%iraug)
-  !IF(upf(2)%tpawp) upf(2)%kkbeta = MAX(upf(2)%kkbeta, upf(2)%paw%iraug)
+  !IF(upf(1)%tpawp) upf_vca%kkbeta = MAX(upf(1)%kkbeta, upf(1)%paw%iraug)
+  !IF(upf(2)%tpawp) upf_vca%kkbeta = MAX(upf(2)%kkbeta, upf(2)%paw%iraug)
   IF(upf(1)%tpawp.or.upf(1)%tpawp) upf_vca%kkbeta = max(upf(1)%kkbeta,upf(2)%kkbeta)
 
   upf_vca%els_beta(1:upf(1)%nbeta) = upf(1)%els_beta
@@ -1263,6 +1253,15 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
      ALLOCATE( upf_vca%paw%ae_vloc(upf_mesh) )
      ALLOCATE( upf_vca%paw%oc(upf_nbeta) )
      !
+     IF (matches(upf_vca%typ, "PAW")) THEN
+        upf_vca%tvanp = .false.
+     ELSE
+        upf_vca%tvanp = upf(1)%tvanp.or.upf(2)%tvanp
+     ENDIF
+     !upf_vca%tpawp = upf(1)%tpawp.or.upf(2)%tpawp
+     !upf_vca%tcoulombp = upf(1)%tcoulombp.or.upf(2)%tcoulombp
+     !upf_vca%nlcc    = upf(1)%nlcc.or.upf(2)%nlcc
+     !
      upf_vca%paw%augshape = upf_paw_augshape ! shape
      upf_vca%paw%raug     = upf_paw_raug     ! cutoff_r
      upf_vca%paw%iraug    = upf_paw_iraug    ! cutoff_r_index, near upf%mesh
@@ -1291,6 +1290,14 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
         NULLIFY( upf_vca%paw%aewfc_rel )
         ALLOCATE( upf_vca%paw%aewfc_rel(upf_mesh,upf_nbeta) )
         upf_vca%paw%aewfc_rel = upf_paw_aewfc_rel
+     ELSE
+        NULLIFY( upf_vca%paw%pfunc_rel )
+        ALLOCATE( upf_vca%paw%pfunc_rel(upf_mesh, upf_nbeta, upf_nbeta) )
+        upf_vca%paw%pfunc_rel(:,:,:) = 0.0d0
+        !
+        NULLIFY( upf_vca%paw%aewfc_rel )
+        ALLOCATE( upf_vca%paw%aewfc_rel(upf_mesh,upf_nbeta) )
+        upf_vca%paw%aewfc_rel(:,:) = 0.0d0
      ENDIF
   ENDIF
 
@@ -1337,8 +1344,13 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
      ALLOCATE( upf_vca%gipaw_wfs_ae(upf_mesh,upf_gipaw_wfs_nchannels) )
      ALLOCATE( upf_vca%gipaw_wfs_ps(upf_mesh,upf_gipaw_wfs_nchannels) )
      !
-     upf_vca%tvanp = upf(1)%tvanp.or.upf(2)%tvanp
-     upf_vca%tcoulombp = upf(1)%tcoulombp.or.upf(2)%tcoulombp
+     IF (matches(upf_vca%typ, "PAW")) THEN
+        upf_vca%tvanp = .false.
+     ELSE
+        upf_vca%tvanp = upf(1)%tvanp.or.upf(2)%tvanp
+     ENDIF
+     !upf_vca%tpawp = upf(1)%tpawp.or.upf(2)%tpawp
+     !upf_vca%tcoulombp = upf(1)%tcoulombp.or.upf(2)%tcoulombp
      !upf_vca%nlcc    = upf(1)%nlcc.or.upf(2)%nlcc
      !upf_vca%nv = upf_nv ! UPF file three-digit version i.e. 2.0.0, CHARACTER
      upf_vca%lmax    = upf_lmax
@@ -1347,7 +1359,7 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
      !
      upf_vca%rinner  = upf_rinner
      !
-     upf_vca%lloc    = max(upf(1)%lloc,upf(2)%lloc)
+     upf_vca%lloc    = max(upf(1)%lloc,upf(2)%lloc)   ! l_local
      upf_vca%rcloc   = max(upf(1)%rcloc,upf(2)%rcloc)
      !
      ! pp mesh
@@ -1430,6 +1442,10 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
      WRITE (*,*) "shape of upf(1)%rcut = ", shape(upf(1)%rcut)
      WRITE (*,*) "shape of upf(1)%rcutus = ", shape(upf(1)%rcutus)
      WRITE (*,*) " "
+     WRITE (*,*) "is_ultrasoft,upf(1)%tvanp = ", upf(1)%tvanp
+     WRITE (*,*) "is_paw,upf(1)%tpawp = ", upf(1)%tpawp
+     WRITE (*,*) "is_coulomb,upf(1)%tcoulombp = ", upf(1)%tcoulombp
+     WRITE (*,*) " "
      !
      IF (matches(upf(1)%typ, "PAW")) THEN
         WRITE (*,*) "PAW"
@@ -1450,8 +1466,11 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
         WRITE (*,*) "shape of upf(1)%paw%oc = ", shape(upf(1)%paw%oc)
         !WRITE (*,*) "shape of upf(1)%paw%kdiff = ", shape(upf(1)%paw%kdiff)
         !WRITE (*,*) "shape of upf(1)%paw%sqr = ", shape(upf(1)%paw%sqr)
+        WRITE (*,*) "upf(1)%paw%augshape = ", upf(1)%paw%augshape
         WRITE (*,*) "upf(1)%paw%raug = ", upf(1)%paw%raug
         WRITE (*,*) "upf(1)%paw%iraug = ", upf(1)%paw%iraug
+        WRITE (*,*) "upf(1)%paw%lmax_aug = ", upf(1)%paw%lmax_aug
+        WRITE (*,*) "upf(1)%qqq_eps  = ", upf(1)%qqq_eps 
         WRITE (*,*) "upf(1)%paw%core_energy  = ", upf(1)%paw%core_energy
         WRITE (*,*) " "
      ENDIF
@@ -1509,6 +1528,10 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
      WRITE (*,*) "shape of upf(2)%rcut = ", shape(upf(2)%rcut)
      WRITE (*,*) "shape of upf(2)%rcutus = ", shape(upf(2)%rcutus)
      WRITE (*,*) " "
+     WRITE (*,*) "is_ultrasoft,upf(2)%tvanp = ", upf(2)%tvanp
+     WRITE (*,*) "is_paw,upf(2)%tpawp = ", upf(2)%tpawp
+     WRITE (*,*) "is_coulomb,upf(2)%tcoulombp = ", upf(2)%tcoulombp
+     WRITE (*,*) " "
      !
      IF (matches(upf(2)%typ, "PAW")) THEN
         WRITE (*,*) "PAW"
@@ -1529,8 +1552,11 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
         WRITE (*,*) "shape of upf(2)%paw%oc = ", shape(upf(2)%paw%oc)
         !WRITE (*,*) "shape of upf(2)%kdiff = ", shape(upf(2)%kdiff)
         !WRITE (*,*) "shape of upf(2)%sqr = ", shape(upf(2)%sqr)
+        WRITE (*,*) "upf(2)%paw%augshape = ", upf(2)%paw%augshape
         WRITE (*,*) "upf(2)%paw%raug = ", upf(2)%paw%raug
         WRITE (*,*) "upf(2)%paw%iraug = ", upf(2)%paw%iraug
+        WRITE (*,*) "upf(2)%paw%lmax_aug = ", upf(2)%paw%lmax_aug
+        WRITE (*,*) "upf(2)%qqq_eps  = ", upf(2)%qqq_eps 
         WRITE (*,*) "upf(2)%paw%core_energy  = ", upf(2)%paw%core_energy
         WRITE (*,*) " "
      ENDIF
@@ -1586,6 +1612,10 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
      WRITE (*,*) "shape of upf_vca%rcut = ", shape(upf_vca%rcut)
      WRITE (*,*) "shape of upf_vca%rcutus = ", shape(upf_vca%rcutus)
      WRITE (*,*) " "
+     WRITE (*,*) "is_ultrasoft,upf_vca%tvanp = ", upf_vca%tvanp
+     WRITE (*,*) "is_paw,upf_vca%tpawp = ", upf_vca%tpawp
+     WRITE (*,*) "is_coulomb,upf_vca%tcoulombp = ", upf_vca%tcoulombp
+     WRITE (*,*) " "
      !
      IF (matches(upf_vca%typ, "PAW")) THEN
         WRITE (*,*) "PAW"
@@ -1607,6 +1637,12 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
         WRITE (*,*) "shape of upf_vca%paw%oc = ", shape(upf_vca%paw%oc)
         !WRITE (*,*) "shape of upf_vca%kdiff = ", shape(upf_vca%kdiff)
         !WRITE (*,*) "shape of upf_vca%sqr = ", shape(upf_vca%sqr)
+        WRITE (*,*) "upf_vca%paw%augshape = ", upf_vca%paw%augshape
+        WRITE (*,*) "upf_vca%paw%raug = ", upf_vca%paw%raug
+        WRITE (*,*) "upf_vca%paw%iraug = ", upf_vca%paw%iraug
+        WRITE (*,*) "upf_vca%paw%lmax_aug = ", upf_vca%paw%lmax_aug
+        WRITE (*,*) "upf_vca%qqq_eps  = ", upf_vca%qqq_eps 
+        WRITE (*,*) "upf_vca%paw%core_energy  = ", upf_vca%paw%core_energy
         WRITE (*,*) " "
      ENDIF
      !
