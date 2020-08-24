@@ -100,8 +100,8 @@ PROGRAM virtual_test
        !
      ENDDO
      ! CHECK Z-valence 
-     IF ( upf(1)%zp /= upf(2)%zp ) WRITE (stdout, *) "CAUTION !!! "//& 
-       "You are mixing pseudos with different number of electrons in valence"
+     !IF ( upf(1)%zp /= upf(2)%zp ) WRITE (stdout, *) "CAUTION !!! "//& 
+     !  "You are mixing pseudos with different number of electrons in valence"
      IF (upf(1)%lmax /= upf(2)%lmax ) WRITE ( stdout, *) "CAUTION !!! " //& 
       " You are mixing pseudos that  act on different angular momenta " 
      IF (upf(1)%lmax_rho /= upf(2)%lmax_rho ) WRITE ( stdout, *) "CAUTION !!! " //& 
@@ -142,8 +142,8 @@ PROGRAM virtual_test
      WRITE (stdout,"('*** Attention !!! SL(semi local) is development version ***')") 
      WRITE (stdout,"('*** Attention !!! USPP+GIPAW is development version ***')") 
      WRITE (stdout,"('*** Attention !!! PAW-as-GIPAW, PAW+GIPAW and PAW are development version ***')") 
-     IF ( upf(1)%zp /= upf(2)%zp ) WRITE (stdout, *) "CAUTION !!! "//& 
-       "You are mixing pseudos with different number of electrons in valence"
+     !IF ( upf(1)%zp /= upf(2)%zp ) WRITE (stdout, *) "CAUTION !!! "//& 
+     !  "You are mixing pseudos with different number of electrons in valence"
      IF (upf(1)%lmax /= upf(2)%lmax ) WRITE ( stdout, *) "CAUTION !!! " //& 
       " You are mixing pseudos that  act on different angular momenta " 
      IF (upf(1)%lmax_rho /= upf(2)%lmax_rho ) WRITE ( stdout, *) "CAUTION !!! " //& 
@@ -1359,8 +1359,8 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
      !
      upf_vca%rinner  = upf_rinner
      !
-     upf_vca%lloc    = max(upf(1)%lloc,upf(2)%lloc)   ! l_local
-     upf_vca%rcloc   = max(upf(1)%rcloc,upf(2)%rcloc)
+     upf_vca%lloc    = min(upf(1)%lloc,upf(2)%lloc)   ! l_local
+     upf_vca%rcloc   = x * upf(1)%rcloc + (1.d0-x) * upf(2)%rcloc
      !
      ! pp mesh
      upf_vca%dx      = upf_dx
@@ -1446,6 +1446,9 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
      WRITE (*,*) "is_paw,upf(1)%tpawp = ", upf(1)%tpawp
      WRITE (*,*) "is_coulomb,upf(1)%tcoulombp = ", upf(1)%tcoulombp
      WRITE (*,*) " "
+     WRITE (*,*) "upf(1)%lloc    = ", upf(1)%lloc
+     WRITE (*,*) "upf(1)%rcloc   = ", upf(1)%rcloc
+     WRITE (*,*) " "
      !
      IF (matches(upf(1)%typ, "PAW")) THEN
         WRITE (*,*) "PAW"
@@ -1475,7 +1478,7 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
         WRITE (*,*) " "
      ENDIF
      !
-     IF (upf(2)%has_gipaw) THEN
+     IF (upf(1)%has_gipaw) THEN
         WRITE (*,*) "GIPAW"
         WRITE (*,*) "upf(1)%nwfc = ", upf(1)%nwfc
         WRITE (*,*) "shape of upf(1)%els = ", shape(upf(1)%els)
@@ -1531,6 +1534,9 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
      WRITE (*,*) "is_ultrasoft,upf(2)%tvanp = ", upf(2)%tvanp
      WRITE (*,*) "is_paw,upf(2)%tpawp = ", upf(2)%tpawp
      WRITE (*,*) "is_coulomb,upf(2)%tcoulombp = ", upf(2)%tcoulombp
+     WRITE (*,*) " "
+     WRITE (*,*) "upf(2)%lloc    = ", upf(2)%lloc
+     WRITE (*,*) "upf(2)%rcloc   = ", upf(2)%rcloc
      WRITE (*,*) " "
      !
      IF (matches(upf(2)%typ, "PAW")) THEN
@@ -1616,6 +1622,9 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
      WRITE (*,*) "is_paw,upf_vca%tpawp = ", upf_vca%tpawp
      WRITE (*,*) "is_coulomb,upf_vca%tcoulombp = ", upf_vca%tcoulombp
      WRITE (*,*) " "
+     WRITE (*,*) "upf_vca%lloc    = ", upf_vca%lloc
+     WRITE (*,*) "upf_vca%rcloc   = ", upf_vca%rcloc
+     WRITE (*,*) " "
      !
      IF (matches(upf_vca%typ, "PAW")) THEN
         WRITE (*,*) "PAW"
@@ -1643,6 +1652,11 @@ SUBROUTINE compute_virtual(x, filein, upf, upf_vca)
         WRITE (*,*) "upf_vca%paw%lmax_aug = ", upf_vca%paw%lmax_aug
         WRITE (*,*) "upf_vca%qqq_eps  = ", upf_vca%qqq_eps 
         WRITE (*,*) "upf_vca%paw%core_energy  = ", upf_vca%paw%core_energy
+        WRITE (*,*) " "
+        WRITE (*,*) "*** Attention !!!: In case of (is_ultrasoft = .true. and is_paw = .true.), ***"
+        WRITE (*,*) "*** Attention !!!: pslibrary do not show error, ***"
+        WRITE (*,*) "*** Attention !!!: but paw from virtual_v3.x show (Error in arraytorealdp. Too few elements found). ***"
+        WRITE (*,*) "*** Please: I would like someone to improve this issue as well. ***"
         WRITE (*,*) " "
      ENDIF
      !
